@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TipidStudent - PH Allowance & Expense Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for expense breakdown -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        phYellow: '#FCD116',
+                        phBlue: '#0038A8',
+                        phRed: '#CE1126',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .gradient-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        .pulse-warning {
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen pb-12">
+
+    <header class="gradient-hero text-white sticky top-0 z-30 shadow-lg border-b border-indigo-900/50">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-400 to-amber-500 flex items-center justify-center text-slate-900 font-black text-xl shadow-md">
+                    ₱
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight flex items-center gap-2">
+                        TipidStudent <span class="bg-indigo-500/30 text-indigo-200 text-xs px-2 py-0.5 rounded-full font-medium border border-indigo-400/30">PH</span>
+                    </h1>
+                    <p class="text-xs text-indigo-200">Allowance & Tipid Tracker</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="claimAllowance()" title="Claim Weekly Allowance" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                    <span class="hidden sm:inline">Claim ₱1,000</span>
+                </button>
+                <button onclick="openModal('resetModal')" title="Reset Week" class="bg-white/10 hover:bg-white/20 text-white p-2 rounded-xl transition text-xs border border-white/10">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 pt-6 space-y-6">
+
+        <div id="lowBalanceAlert" class="hidden bg-amber-500/10 border-2 border-amber-500/50 text-amber-900 p-4 rounded-2xl flex items-center justify-between shadow-sm animate-bounce">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-sm">Petsa de Peligro Warning!</h4>
+                    <p class="text-xs text-amber-800">Your cash on hand is below ₱150. Time to switch to Siomai Rice mode!</p>
+                </div>
+            </div>
+            <button onclick="dismissAlert()" class="text-amber-700 hover:text-amber-900 text-xs font-bold px-2 py-1">Dismiss</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Current Cash on Hand -->
+            <div class="glass-card p-5 rounded-3xl shadow-sm relative overflow-hidden border-l-4 border-l-emerald-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cash on Hand</span>
+                        <h2 id="balanceText" class="text-3xl font-extrabold text-slate-900 mt-1">₱0.00</h2>
+                    </div>
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-wallet text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span class="text-slate-500">Weekly Target: ₱1,000</span>
+                    <span id="allowanceStatusBadge" class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Active</span>
+                </div>
+            </div>
+
+            <!-- Total Spent This Week -->
+            <div class="glass-card p-5 rounded-3xl shadow-sm relative overflow-hidden border-l-4 border-l-rose-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Spent</span>
+                        <h2 id="spentText" class="text-3xl font-extrabold text-slate-900 mt-1">₱0.00</h2>
+                    </div>
+                    <div class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-receipt text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span class="text-slate-500">Spent Rate</span>
+                    <span id="spentPercent" class="font-semibold text-slate-700">0% of budget</span>
+                </div>
+            </div>
+
+            <!-- Total Extra Gifts & Savings -->
+            <div class="glass-card p-5 rounded-3xl shadow-sm relative overflow-hidden border-l-4 border-l-indigo-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Gifts & Savings</span>
+                        <h2 id="savedText" class="text-3xl font-extrabold text-slate-900 mt-1">₱0.00</h2>
+                    </div>
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-piggy-bank text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span class="text-slate-500">Total Goals Stashed</span>
+                    <span id="goalsCount" class="font-semibold text-indigo-600">0 Goals</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-5 rounded-3xl shadow-sm space-y-2">
+            <div class="flex justify-between items-center text-sm">
+                <span class="font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-indigo-500"></i> Weekly Allowance Progress
+                </span>
+                <span id="remainingPercentText" class="font-semibold text-slate-500 text-xs">100% Remaining</span>
+            </div>
+            <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200">
+                <div id="weeklyProgressBar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500" style="width: 100%;"></div>
+            </div>
+            <div class="flex justify-between text-[11px] text-slate-400 font-medium pt-1">
+                <span>₱0 Spent</span>
+                <span>₱1,000 Base Cap</span>
+            </div>
+        </div>
+
+        <div class="glass-card p-5 rounded-3xl shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-500"></i> Quick Student Presets (1-Tap Log)
+                </h3>
+                <span class="text-[11px] text-slate-400">Common PH Expenses</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+                <button onclick="quickAdd('Jeepney Fare', 13, 'Commute / Fare')" class="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition text-left group">
+                    <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition">
+                        🚌
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">Jeep Fare</div>
+                        <div class="text-[11px] text-slate-500 font-semibold">₱13.00</div>
+                    </div>
+                </button>
+
+                <button onclick="quickAdd('Tricycle Fare', 35, 'Commute / Fare')" class="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition text-left group">
+                    <div class="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition">
+                        🛺
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">Trike Fare</div>
+                        <div class="text-[11px] text-slate-500 font-semibold">₱35.00</div>
+                    </div>
+                </button>
+
+                <button onclick="quickAdd('Merienda / Snack', 70, 'Food & Snacks')" class="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition text-left group">
+                    <div class="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition">
+                        🍔
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">Merienda</div>
+                        <div class="text-[11px] text-slate-500 font-semibold">₱70.00</div>
+                    </div>
+                </button>
+
+                <button onclick="quickAdd('Xerox / Printing', 50, 'School Supplies')" class="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition text-left group">
+                    <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition">
+                        🖨️
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">Print/Xerox</div>
+                        <div class="text-[11px] text-slate-500 font-semibold">₱50.00</div>
+                    </div>
+                </button>
+
+                <button onclick="quickAdd('Promo Load / Data', 50, 'Mobile Data / Load')" class="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition text-left group col-span-2 sm:col-span-1">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm group-hover:scale-110 transition">
+                        📱
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">Mobile Load</div>
+                        <div class="text-[11px] text-slate-500 font-semibold">₱50.00</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Side: Custom Entry Form -->
+            <div class="glass-card p-5 rounded-3xl shadow-sm space-y-4">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-circle-plus text-indigo-600"></i> Log Custom Transaction
+                </h3>
+
+                <form id="transForm" onsubmit="handleFormSubmit(event)" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Type</label>
+                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs font-bold">
+                            <button type="button" id="btnTypeExpense" onclick="setType('expense')" class="py-2 rounded-lg bg-white text-rose-600 shadow-sm transition">Expense</button>
+                            <button type="button" id="btnTypeIncome" onclick="setType('income')" class="py-2 rounded-lg text-slate-500 transition">Income / Gift</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="descInput" class="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                        <input type="text" id="descInput" placeholder="e.g. Grandma's Gift, Pastil Lunch" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label for="amountInput" class="block text-xs font-semibold text-slate-600 mb-1">Amount (₱)</label>
+                            <input type="number" id="amountInput" step="0.01" placeholder="0.00" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label for="categoryInput" class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+                            <select id="categoryInput" class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white transition">
+                                <option value="Food & Snacks">🍔 Food & Merienda</option>
+                                <option value="Commute / Fare">🚌 Commute / Fare</option>
+                                <option value="School Supplies">📚 School Supplies</option>
+                                <option value="Mobile Data / Load">📱 Mobile Load</option>
+                                <option value="Leisure / Hangout">🎮 Gala / Hangout</option>
+                                <option value="Savings Target">🐷 Savings Target</option>
+                                <option value="Gifts / Extra">🎁 Gift / Extra Money</option>
+                                <option value="Others">💡 Others</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-md shadow-indigo-500/20 active:scale-98">
+                        Save Transaction
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right Side: Visual Chart Analytics -->
+            <div class="lg:col-span-2 glass-card p-5 rounded-3xl shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-indigo-600"></i> Expense Breakdown
+                    </h3>
+                    <span class="text-xs text-slate-400 font-medium">Categorized</span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                    <div class="relative w-full max-w-[220px] mx-auto h-[200px] flex items-center justify-center">
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                    <div id="chartLegend" class="space-y-2 text-xs max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
+                        <!-- Dynamic Legend populated via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="glass-card p-5 rounded-3xl shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-bullseye text-emerald-600"></i> Student Savings Goals & Target Stash
+                    </h3>
+                    <p class="text-xs text-slate-500">Allocate leftover allowance or gift money to personal targets</p>
+                </div>
+                <button onclick="openModal('goalModal')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs px-3 py-2 rounded-xl border border-indigo-200 transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> New Goal
+                </button>
+            </div>
+
+            <div id="savingsGoalsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Dynamic Goals inserted here -->
+            </div>
+        </div>
+
+        <div class="glass-card p-5 rounded-3xl shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-indigo-600"></i> Transaction History
+                </h3>
+
+                <!-- Filters -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <input type="text" id="searchInput" oninput="renderHistory()" placeholder="Search description..." class="text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36 sm:w-44">
+                    <select id="filterCategory" onchange="renderHistory()" class="text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="ALL">All Categories</option>
+                        <option value="Food & Snacks">Food & Merienda</option>
+                        <option value="Commute / Fare">Commute / Fare</option>
+                        <option value="School Supplies">School Supplies</option>
+                        <option value="Mobile Data / Load">Mobile Data / Load</option>
+                        <option value="Leisure / Hangout">Gala / Hangout</option>
+                        <option value="Savings Target">Savings Target</option>
+                        <option value="Gifts / Extra">Gifts / Extra</option>
+                    </select>
+                    <button onclick="exportCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3 py-2.5 rounded-xl transition border border-slate-200" title="Export CSV">
+                        <i class="fa-solid fa-file-csv"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- List of Transactions -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-600">
+                    <thead class="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-3">Date</th>
+                            <th class="py-3 px-3">Description</th>
+                            <th class="py-3 px-3">Category</th>
+                            <th class="py-3 px-3 text-right">Amount</th>
+                            <th class="py-3 px-3 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-100 font-medium">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+                <div id="emptyState" class="hidden py-8 text-center text-slate-400 space-y-2">
+                    <i class="fa-solid fa-box-open text-3xl"></i>
+                    <p class="text-xs">No transactions found for this week yet.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    
+    <!-- Modal: Reset / Claim Week -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl font-bold mx-auto">
+                <i class="fa-solid fa-rotate"></i>
+            </div>
+            <div class="text-center space-y-1">
+                <h3 class="font-extrabold text-slate-800 text-base">Start New Week?</h3>
+                <p class="text-xs text-slate-500">This will top up your cash balance with a fresh ₱1,000 allowance or reset your current cycle logs.</p>
+            </div>
+            <div class="space-y-2">
+                <button onclick="confirmClaimAllowance()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-md">
+                    Claim +₱1,000 Allowance
+                </button>
+                <button onclick="confirmClearAll()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs py-2.5 rounded-xl border border-rose-200 transition">
+                    Wipe All Data & Start Fresh
+                </button>
+                <button onclick="closeModal('resetModal')" class="w-full text-slate-400 hover:text-slate-600 font-semibold text-xs py-2">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: New Savings Goal -->
+    <div id="goalModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-bullseye text-emerald-500"></i> Set New Savings Target
+                </h3>
+                <button onclick="closeModal('goalModal')" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="handleCreateGoal(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Goal Name</label>
+                    <input type="text" id="goalTitleInput" placeholder="e.g. Concert Ticket, New Shoes" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Target Amount (₱)</label>
+                    <input type="number" id="goalTargetInput" step="0.01" placeholder="1500.00" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-md">
+                    Create Goal
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Deposit Money to Savings Goal -->
+    <div id="depositModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-piggy-bank text-indigo-600"></i> Deposit to <span id="depositGoalTitle" class="text-indigo-600"></span>
+                </h3>
+                <button onclick="closeModal('depositModal')" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="handleDepositSubmit(event)" class="space-y-3">
+                <input type="hidden" id="depositGoalId">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Amount to Save (₱)</label>
+                    <input type="number" id="depositAmountInput" step="0.01" placeholder="50.00" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <p class="text-[11px] text-slate-400">This will be logged as a savings expense from your cash balance.</p>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-md">
+                    Confirm Stash
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let currentType = 'expense';
+        let transactions = [];
+        let goals = [];
+        let chartInstance = null;
+
+        // Category colors mapping
+        const categoryColors = {
+            'Food & Snacks': '#f97316',
+            'Commute / Fare': '#0284c7',
+            'School Supplies': '#a855f7',
+            'Mobile Data / Load': '#10b981',
+            'Leisure / Hangout': '#ec4899',
+            'Savings Target': '#6366f1',
+            'Gifts / Extra': '#10b981',
+            'Others': '#64748b'
+        };
+
+        // Format currency helper
+        function formatPHP(amount) {
+            return '₱' + parseFloat(amount || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // Initialize App
+        window.onload = function() {
+            loadFromLocalStorage();
+            initChart();
+            updateUI();
+        };
+
+        // Load data from localStorage
+        function loadFromLocalStorage() {
+            const savedTrans = localStorage.getItem('tipid_transactions');
+            const savedGoals = localStorage.getItem('tipid_goals');
+            
+            if (savedTrans) {
+                transactions = JSON.parse(savedTrans);
+            } else {
+                // Initial Default Allowance for new user
+                transactions = [
+                    {
+                        id: Date.now(),
+                        desc: "Initial Weekly Allowance",
+                        amount: 1000,
+                        type: "income",
+                        category: "Allowance",
+                        date: new Date().toISOString()
+                    }
+                ];
+                saveToLocalStorage();
+            }
+
+            if (savedGoals) {
+                goals = JSON.parse(savedGoals);
+            } else {
+                goals = [
+                    { id: 1, title: "Emergency Fund", target: 500, saved: 150 },
+                    { id: 2, title: "Concert / Gala Ticket", target: 1500, saved: 300 }
+                ];
+                saveToLocalStorage();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('tipid_transactions', JSON.stringify(transactions));
+            localStorage.setItem('tipid_goals', JSON.stringify(goals));
+        }
+
+        // Toggle Expense vs Income tab
+        function setType(type) {
+            currentType = type;
+            const btnExp = document.getElementById('btnTypeExpense');
+            const btnInc = document.getElementById('btnTypeIncome');
+
+            if (type === 'expense') {
+                btnExp.className = "py-2 rounded-lg bg-white text-rose-600 shadow-sm transition";
+                btnInc.className = "py-2 rounded-lg text-slate-500 transition";
+            } else {
+                btnInc.className = "py-2 rounded-lg bg-white text-emerald-600 shadow-sm transition";
+                btnExp.className = "py-2 rounded-lg text-slate-500 transition";
+            }
+        }
+
+        // Add Transaction
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const desc = document.getElementById('descInput').value.trim();
+            const amount = parseFloat(document.getElementById('amountInput').value);
+            const category = document.getElementById('categoryInput').value;
+
+            if (!desc || isNaN(amount) || amount <= 0) return;
+
+            const newTrans = {
+                id: Date.now(),
+                desc: desc,
+                amount: amount,
+                type: currentType,
+                category: category,
+                date: new Date().toISOString()
+            };
+
+            transactions.unshift(newTrans);
+            saveToLocalStorage();
+            updateUI();
+
+            // Reset form
+            document.getElementById('transForm').reset();
+            setType('expense');
+        }
+
+        // Quick Preset Add
+        function quickAdd(desc, amount, category) {
+            const newTrans = {
+                id: Date.now(),
+                desc: desc,
+                amount: amount,
+                type: 'expense',
+                category: category,
+                date: new Date().toISOString()
+            };
+
+            transactions.unshift(newTrans);
+            saveToLocalStorage();
+            updateUI();
+        }
+
+        // Claim Weekly Allowance (₱1,000)
+        function claimAllowance() {
+            const newTrans = {
+                id: Date.now(),
+                desc: "Weekly Allowance Claim",
+                amount: 1000,
+                type: "income",
+                category: "Allowance",
+                date: new Date().toISOString()
+            };
+            transactions.unshift(newTrans);
+            saveToLocalStorage();
+            updateUI();
+        }
+
+        function confirmClaimAllowance() {
+            claimAllowance();
+            closeModal('resetModal');
+        }
+
+        // Clear all data
+        function confirmClearAll() {
+            localStorage.clear();
+            transactions = [{
+                id: Date.now(),
+                desc: "Weekly Allowance Claim",
+                amount: 1000,
+                type: "income",
+                category: "Allowance",
+                date: new Date().toISOString()
+            }];
+            goals = [];
+            saveToLocalStorage();
+            updateUI();
+            closeModal('resetModal');
+        }
+
+        // Delete Transaction
+        function deleteTransaction(id) {
+            transactions = transactions.filter(t => t.id !== id);
+            saveToLocalStorage();
+            updateUI();
+        }
+
+        // Modal Helpers
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function dismissAlert() {
+            document.getElementById('lowBalanceAlert').classList.add('hidden');
+        }
+
+        // Create Savings Goal
+        function handleCreateGoal(e) {
+            e.preventDefault();
+            const title = document.getElementById('goalTitleInput').value.trim();
+            const target = parseFloat(document.getElementById('goalTargetInput').value);
+
+            if (!title || isNaN(target) || target <= 0) return;
+
+            goals.push({
+                id: Date.now(),
+                title: title,
+                target: target,
+                saved: 0
+            });
+
+            saveToLocalStorage();
+            updateUI();
+            closeModal('goalModal');
+            document.getElementById('goalTitleInput').value = '';
+            document.getElementById('goalTargetInput').value = '';
+        }
+
+        // Open Deposit Modal
+        function openDepositModal(goalId) {
+            const goal = goals.find(g => g.id === goalId);
+            if (!goal) return;
+
+            document.getElementById('depositGoalId').value = goal.id;
+            document.getElementById('depositGoalTitle').innerText = goal.title;
+            openModal('depositModal');
+        }
+
+        // Handle Deposit to Savings
+        function handleDepositSubmit(e) {
+            e.preventDefault();
+            const goalId = parseInt(document.getElementById('depositGoalId').value);
+            const amount = parseFloat(document.getElementById('depositAmountInput').value);
+
+            if (isNaN(amount) || amount <= 0) return;
+
+            const goal = goals.find(g => g.id === goalId);
+            if (goal) {
+                goal.saved += amount;
+                
+                // Add expense transaction for tracking stash
+                transactions.unshift({
+                    id: Date.now(),
+                    desc: `Stashed into ${goal.title}`,
+                    amount: amount,
+                    type: 'expense',
+                    category: 'Savings Target',
+                    date: new Date().toISOString()
+                });
+
+                saveToLocalStorage();
+                updateUI();
+                closeModal('depositModal');
+                document.getElementById('depositAmountInput').value = '';
+            }
+        }
+
+        function updateUI() {
+            // Calculations
+            let totalIncome = 0;
+            let totalExpense = 0;
+
+            transactions.forEach(t => {
+                if (t.type === 'income') totalIncome += t.amount;
+                if (t.type === 'expense') totalExpense += t.amount;
+            });
+
+            const balance = totalIncome - totalExpense;
+
+            // DOM Elements
+            document.getElementById('balanceText').innerText = formatPHP(balance);
+            document.getElementById('spentText').innerText = formatPHP(totalExpense);
+            
+            // Total Saved Across Goals
+            const totalGoalSavings = goals.reduce((acc, g) => acc + g.saved, 0);
+            document.getElementById('savedText').innerText = formatPHP(totalGoalSavings);
+            document.getElementById('goalsCount').innerText = `${goals.length} Targets`;
+
+            // Progress Bar Calculation based on ₱1,000 reference or Total Income
+            const baseCap = totalIncome > 0 ? totalIncome : 1000;
+            const remainingPercent = Math.max(0, Math.min(100, Math.round((balance / baseCap) * 100)));
+            const spentPercent = Math.min(100, Math.round((totalExpense / baseCap) * 100));
+
+            const progressBar = document.getElementById('weeklyProgressBar');
+            progressBar.style.width = `${remainingPercent}%`;
+
+            if (remainingPercent < 20) {
+                progressBar.className = "h-full bg-gradient-to-r from-rose-600 to-red-500 rounded-full transition-all duration-500";
+            } else if (remainingPercent < 50) {
+                progressBar.className = "h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500";
+            } else {
+                progressBar.className = "h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500";
+            }
+
+            document.getElementById('remainingPercentText').innerText = `${remainingPercent}% Left`;
+            document.getElementById('spentPercent').innerText = `${spentPercent}% of budget spent`;
+
+            // Low Balance Warning Banner Trigger
+            const alertBox = document.getElementById('lowBalanceAlert');
+            if (balance <= 150 && balance > 0) {
+                alertBox.classList.remove('hidden');
+            } else {
+                alertBox.classList.add('hidden');
+            }
+
+            // Render History & Goals & Chart
+            renderHistory();
+            renderGoals();
+            updateChart();
+        }
+
+        // Render History Table
+        function renderHistory() {
+            const tbody = document.getElementById('historyTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const filterCat = document.getElementById('filterCategory').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+
+            tbody.innerHTML = '';
+
+            const filtered = transactions.filter(t => {
+                const matchesCat = filterCat === 'ALL' || t.category === filterCat;
+                const matchesSearch = t.desc.toLowerCase().includes(search);
+                return matchesCat && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition border-b border-slate-100";
+
+                const dateStr = new Date(t.date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                const isIncome = t.type === 'income';
+                const amountClass = isIncome ? 'text-emerald-600 font-bold' : 'text-slate-800 font-bold';
+                const sign = isIncome ? '+' : '-';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-3 text-slate-400 text-[11px] font-normal">${dateStr}</td>
+                    <td class="py-3 px-3 font-semibold text-slate-800">
+                        ${t.desc}
+                    </td>
+                    <td class="py-3 px-3">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold" style="background-color: ${(categoryColors[t.category] || '#64748b')}15; color: ${categoryColors[t.category] || '#64748b'};">
+                            ${t.category}
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 text-right ${amountClass}">
+                        ${sign}${formatPHP(t.amount)}
+                    </td>
+                    <td class="py-3 px-3 text-center">
+                        <button onclick="deleteTransaction(${t.id})" class="text-slate-300 hover:text-rose-500 transition p-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Savings Goals Cards
+        function renderGoals() {
+            const container = document.getElementById('savingsGoalsContainer');
+            container.innerHTML = '';
+
+            if (goals.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic col-span-full">No active savings targets. Add one above!</p>`;
+                return;
+            }
+
+            goals.forEach(g => {
+                const percent = Math.min(100, Math.round((g.saved / g.target) * 100));
+                
+                const card = document.createElement('div');
+                card.className = "p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3 relative overflow-hidden";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-xs">${g.title}</h4>
+                            <div class="text-[11px] text-slate-500 mt-0.5">${formatPHP(g.saved)} of ${formatPHP(g.target)}</div>
+                        </div>
+                        <span class="text-xs font-black ${percent >= 100 ? 'text-emerald-600' : 'text-indigo-600'}">${percent}%</span>
+                    </div>
+
+                    <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500 transition-all duration-500" style="width: ${percent}%;"></div>
+                    </div>
+
+                    <div class="flex justify-end pt-1">
+                        <button onclick="openDepositModal(${g.id})" class="bg-white hover:bg-slate-100 text-slate-700 font-bold text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus text-emerald-500"></i> Stash Cash
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Initialize Chart.js Donut Chart
+        function initChart() {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // Update Chart & Custom Legend
+        function updateChart() {
+            if (!chartInstance) return;
+
+            const categoryTotals = {};
+
+            transactions.forEach(t => {
+                if (t.type === 'expense') {
+                    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+                }
+            });
+
+            const labels = Object.keys(categoryTotals);
+            const data = Object.values(categoryTotals);
+            const colors = labels.map(l => categoryColors[l] || '#64748b');
+
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = data;
+            chartInstance.data.datasets[0].backgroundColor = colors;
+            chartInstance.update();
+
+            // Render Legend
+            const legendBox = document.getElementById('chartLegend');
+            legendBox.innerHTML = '';
+
+            if (labels.length === 0) {
+                legendBox.innerHTML = '<span class="text-xs text-slate-400 italic">No expenses logged yet.</span>';
+                return;
+            }
+
+            const totalExpense = data.reduce((a, b) => a + b, 0);
+
+            labels.forEach((cat, idx) => {
+                const amt = data[idx];
+                const pct = Math.round((amt / totalExpense) * 100);
+
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between text-slate-700 font-medium";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${colors[idx]}"></span>
+                        <span class="truncate max-w-[110px]">${cat}</span>
+                    </div>
+                    <div class="font-bold text-slate-800">${formatPHP(amt)} <span class="text-[10px] text-slate-400 font-normal">(${pct}%)</span></div>
+                `;
+                legendBox.appendChild(div);
+            });
+        }
+
+        // Export Transactions as CSV
+        function exportCSV() {
+            if (transactions.length === 0) {
+                alert("No transactions to export.");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Date,Type,Category,Description,Amount (PHP)\n";
+
+            transactions.forEach(t => {
+                const dateStr = new Date(t.date).toISOString().split('T')[0];
+                csvContent += `"${dateStr}","${t.type}","${t.category}","${t.desc.replace(/"/g, '""')}",${t.amount}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `TipidStudent_Export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
